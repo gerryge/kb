@@ -82,9 +82,27 @@ ABP 框架有助于在您的应用程序中实现这一原则。
 
 
 
-**示例：向问题添加评论**
+**示例：向问题中添加评论**
 
-![image-20210719220818540](./04_Implementation_The_Building_Blocks.assets/image-20210719220818540.png)
+```csharp
+public class IssueAppService : ApplicationService, IIssueAppService
+{
+    private readonly IRepository<Issue, Guid> _issueRepository;
+
+    public IssueAppService(IRepository<Issue, Guid> issueRepository)
+    {
+        _issueRepository = issueRepository;
+    }
+
+    [Authorize]
+    public async Task CreateCommentAsync(CreateCommentDto input)
+    {
+        var issue = await _issueRepository.GetAsync(input.IssueId);
+        issue.AddComment(CurrentUser.GetId(), input.Text);
+        await _issueRepository.UpdateAsynce(issue);
+    }
+}
+```
 
 `_issueRepository.GetAsync` 方法默认将`Issue`及其所有详细信息（子集合）作为一个单元来检索。虽然这对 MongoDB 来说是开箱即用的，但您需要为 EF Core 配置聚合详细信息。但是，一旦您配置好，存储库就会自动处理它。 `_issueRepository.GetAsync` 方法获取一个可选参数 `includeDetails`，您可以在需要时传递 `false` 以禁用此行为。
 
@@ -229,7 +247,46 @@ EF Core 具有**更改跟踪**功能。因此，您实际上不需要调用 `_is
 
 **示例`Issue`（聚合根）构造函数**
 
-![image-20210719230937729](./04_Implementation_The_Building_Blocks.assets/image-20210719230937729.png)
+```csharp
+using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using Volo.Abp;
+using Volo.Abp.Domain.Entities;
+
+namespace IssueTracking.Issues
+{
+    public class Issue : AggregateRoot<Guid>
+    {
+        public Guid RepositoryId { get; set; }
+        public string Title { get; set; }
+        public string Text { get; set; }
+        public Guid? AssignedUserId { get; set; }
+        public bool IsClosed { get; set; }
+        public IssueCloseReason? CloseReason { get; set; } //枚举
+
+        public ICollection<IssueLabel> Labels { get; set; }
+
+        public Issue(
+            Guid id,
+            Guid repositoryId,
+            string title,
+            string text = null,
+            Guid? assignedUserId = null
+            ) : base(id)
+        {
+            RepositoryId = repositoryId;
+            Title = Check.NotNullOrWhiteSpace(title, nameof(title));
+
+            Text = text;
+            AssignedUserId = assignedUserId;
+
+            Labels = new Collection<IssueLabel>();
+        }
+        private Issue() {/*反序列化和ORMs需要*/}
+    }
+}
+```
 
 
 
@@ -261,7 +318,45 @@ EF Core 具有**更改跟踪**功能。因此，您实际上不需要调用 `_is
 
 **示例：以受控方式更改属性的方法**
 
-![image-20210719230742649](./04_Implementation_The_Building_Blocks.assets/image-20210719230742649.png)
+```csharp
+using System;
+using Volo.Abp;
+using Volo.Abp.Domain.Entities;
+
+namespace IssueTracking.Issues
+{    
+    public class Issue : AggregateRoot<Guid>
+    {
+        public Guid RepositoryId { get; private set; } //永不可变
+        public string Title { get; private set; } //需要验证
+        public string Text { get; set; } //无需验证
+        public Guid? AssignedUserId { get; set; } //无需验证
+        public bool IsClosed { get; private set; } //需要和 CloseReason 一起更改
+        public IssueCloseReason? CloseReason { get; private set; } //需要和 IsClosed 一起更改
+
+        //...
+
+        public void SetTitle(string title)
+        {
+            Title = Check.NotNullOrWhiteSpace(title, nameof(title));
+        }
+
+        public void Close(IssueCloseReason reason)
+        {
+            IsClosed = true;
+            CloseReason = reason;
+        }
+
+        public void ReOpen()
+        {
+            IsClosed = false;
+            CloseReason = null;
+        }
+    }
+}
+```
+
+
 
 - `RepositoryId` 设置器设为私有，创建`Issue`后无法更改它，因为这是我们在此领域中想要的：问题不能移动到另一个存储库。
 - 如果您想稍后以受控方式更改它，则将`Title` 设置器设为私有并创建 SetTitle 方法。
@@ -281,7 +376,47 @@ EF Core 具有**更改跟踪**功能。因此，您实际上不需要调用 `_is
 
 **示例：**
 
-![image-20210719233614479](./04_Implementation_The_Building_Blocks.assets/image-20210719233614479.png)
+```csharp
+public class Issue : AggregateRoot<Guid>
+{
+    //..
+
+    public bool IsLocked { get; private set; }
+    public bool IsClosed { get; private set; }
+    public IssueCloseReason? CloseReason { get; private set; }
+
+    public void Close(IssueCloseReason reason)
+    {
+        IsClose = true;
+        CloseReason = reason;
+    }
+
+    public void ReOpen()
+    {
+        if (IsLocked)
+        {
+            throw new IssueStateException("Can not open a locked issue! Unlock it first.");
+        }
+        IsClosed = false;
+        CloseReason = null;
+    }
+
+    public void Lock()
+    {
+        if (!IsClosed)
+        {
+            throw new IssueStateException("Can not open a locked issue! Unlock it first.");
+        }
+
+        IsLocked = true;
+    }
+
+    public void Unlock()
+    {
+        IsLocked = false;
+    }
+}
+```
 
 这里有两个业务规则；
 
@@ -290,7 +425,20 @@ EF Core 具有**更改跟踪**功能。因此，您实际上不需要调用 `_is
 
 在这些情况下，`Issue`类会抛出一个 `IssueStateException` 以强制执行业务规则：
 
-![image-20210719234426545](./04_Implementation_The_Building_Blocks.assets/image-20210719234426545.png)
+```csharp
+using System;
+
+namespace IssueTracking.Issues
+{
+    public class IssueStateException : Exception
+    {
+        public IssueStateException(string message)
+        : base(message)
+        {
+        }
+    }
+}
+```
 
 抛出这样的异常有两个潜在的问题；
 
@@ -303,7 +451,22 @@ ABP 的[异常处理系统](https://docs.abp.io/en/abp/latest/Exception-Handling
 
 **示例：使用代码抛出业务异常**
 
-![image-20210719234344275](./04_Implementation_The_Building_Blocks.assets/image-20210719234344275.png)
+```csharp
+using Volo.Abp;
+
+namespace IssuTracking.Issues
+{
+    public class IssueStateException : BuisinessException
+    {
+        public IssueStateExcetipn(string code)
+            : base(code)
+        {
+        }
+    }
+}
+```
+
+
 
 - `IssueStateException` 类继承了 `BusinessException` 类。对于从 `BusinessException` 派生的异常，ABP 默认返回 403（禁止）HTTP 状态代码（而不是 500 - 内部服务器错误）。
 - 该`code`用作本地化资源文件中的关键字，用于查找本地化消息。
@@ -312,7 +475,17 @@ ABP 的[异常处理系统](https://docs.abp.io/en/abp/latest/Exception-Handling
 
 现在，我们可以更改 `ReOpen` 方法，如下所示：
 
-![image-20210719234742121](./04_Implementation_The_Building_Blocks.assets/image-20210719234742121.png)
+```csharp
+public void ReOpen()
+{
+    if (IsLocked)
+    {
+        throw new IssueStateException("IssueTracking:CanNotOpenLockedIssue");
+    }
+    IsClosed = false;
+    CloseReason = null;
+}
+```
 
 
 
@@ -753,4 +926,449 @@ public class IssueAppService : ApplicationService, IIssueAppService
 
 ## 领域服务
 
-//TODO
+领域服务实现领域逻辑，其中它；
+
+- 依赖于**服务**和**存储库**。
+- 需要使用**多个聚合**，因此逻辑不能正确地适合任何聚合。
+
+领域服务与领域对象一起工作。它们的方法可以**获取和返回实体、值对象、原始类型等**。但是，**它们不获取/返回 DTOs**。 DTOs 是应用层的一部分。
+
+
+
+**示例：将问题分配给用户**
+
+回想一下，我们之前如何在`Issue`实体中实现问题分配的：
+
+```csharp
+public class Issue : AggregateRoot<Guid>
+{
+    //...
+    public Guid? AssignedUserId { get; private set; }
+    public async Task AssignToAsync(AppUser user, IUserIssueService userIssueService)
+    {
+        var openIssueCount = await userIssueService.GetOpenIssueCountAsync(user.Id);
+
+        if (openIssueCount >= 3)
+        {
+            throw new BusinessException("IssueTracking:ConcurrentOpenIssueLimit");
+        }
+
+        AssignedUserId = user.Id;
+    }
+
+    public void CleanAssignment()
+    {
+        AssignedUserId = null;
+    }
+}
+```
+
+在这里，我们将把这个逻辑移到领域服务中。
+
+首先，更改`Issue`类：
+
+```csharp
+public class Issue : AggregateRoot<Guid>
+{
+    //...
+    public Guid? AssignedUserId { get; internal set; }
+}
+```
+
+- 删除了与分配相关的方法。
+- 将 `AssignUserId` 属性设置器从`private`更改为
+  `internal`，以允许从领域服务设置它。
+
+下一步是创建一个名为 `IssueManager` 的领域服务，它具有 `AssignToAsync` 以将给定的问题分配给给定的用户。
+
+```csharp
+public class IssueManager : DomainService
+{
+    private readonly IRepository<Issue, Guid> _issueRepository;
+
+    public IssueManager(IRepository<Issue, Guid> issueRepository)
+    {
+        _issueRepository = issueRepository;
+    }
+
+    public async Task AssignToAsync(Issue issue, AppUser user)
+    {
+        var openIssueCount = await _issueRepository.CountAsync(
+            i => i.AssingedUserId == user.Id && !i.IsClosed
+        );
+
+        if (openIssueCount >= 3)
+        {
+            throw new BusinessException("IssueTracking:ConcurrentOpenIssueLimit");
+        }
+
+        issue.AssignedUserId = user.Id;
+    }
+}
+```
+
+`IssueManager` 可以注入任何服务依赖项并用于查询用户的未解决问题计数。
+
+
+
+::: tip
+我们更喜欢并建议对领域服务使用 `Manager` 后缀。
+:::
+
+
+
+这种设计的唯一问题是 `Issue.AssignedUserId` 现在是开放的，可以在类的外部设置。但是，它不是`public`。它是`internal`，并且只能在同一个程序集中进行更改，此示例解决方案的 `IssueTracking.Domain` 项目。我们认为这是合理的；
+
+- 开发⼈员已经清楚领域层的开发规则，他们会使`⽤IssueManager`来执⾏业务逻辑。
+- 应⽤层开发⼈员只能使用`IssueManager`，因为他们⽆法直接修改实体属性。
+
+虽然两种方法之间存在权衡，但当业务逻辑需要使用外部服务时，我们更喜欢创建领域服务。
+
+
+
+::: tip
+如果您没有充分的理由，我们认为没有必要为领域服务创建接口（如 `IssueManager` 的 `IIssueManager`）。
+:::
+
+
+
+## 应用服务
+
+[应用程序](https://docs.abp.io/en/abp/latest/Application-Services)服务是实现应用程序**用例**的无状态服务。应用程序服务通常获取并返回 DTOs。它由表示层使用。它**使用和协调领域对象**（实体、存储库等）来实现用例。
+
+
+
+应用服务的通用原则是；
+
+- 实现特定于当前用例的**应用层逻辑**。不要在应用服务内部实现核心领域逻辑。我们将介绍它和领域层逻辑的差异。
+- **永远不要**为应用程序服务方法**获取或返回实体**。这打破了领域层的封装。应始终获取和返回 DTOs。
+
+
+
+**示例：将问题分配给用户**
+
+```csharp
+using System;
+using System.Threading.Tasks;
+using IssueTracking.Users;
+using Microsoft.AspNetCore.Authorization;
+using Volo.Abp.Application.Services;
+using Volo.Abp.Domain.Repositories;
+
+namespace IssueTracking.Issues
+{
+    public class IssueAppService : ApplicationService, IIssueAppService
+    {
+        private readonly IssueManager _issueManager;
+        private readonly IRepository<Issue, Guid> _issueRepository;
+        private readonly IRepository<AppUser, Guid> _userRepository;
+
+        public IssueAppService(
+            IssueManager issueManager,
+            IRepository<Issue, Guid> issueRepository,
+            IRepository<AppUser, Guid> userRepository
+        )
+        {
+            _issueManager = issueManager;
+            _issueRepository = issueRepository;
+            _userRepository = userRepository;
+        }
+
+        [Authorize]
+        public async Task AssignAsync(IssueAssignDto input)
+        {
+            var issue = await _issueRepository.GetAsync(input.IssueId);
+            var user = await _userRepository.GetAsync(inpu.UserId);
+
+            await _issueManager.AssignToAsync(issue, user);
+
+            await _issueRepository.UpdateAsync(issue);
+        }
+    }
+}
+```
+
+一个应用服务方法通常具有三个步骤，这里实现了这些步骤；
+
+1. 从数据库中获取相关领域对象以实现用例。
+2. 使用领域对象（域服务、实体等）来执行实际操作。
+3. 更新数据库中已更改的实体。
+
+本例中的 `IssueAssignDto` 是一个简单的 DTO 类：
+
+
+
+::: tip
+如果您使用的是 EF Core，则不需要最后一步*更新*操作，因为它具有更改跟踪系统。如果您想利用此 EF Core 功能，请参阅上面关于*数据库独立原则*的讨论部分。
+:::
+
+
+
+本例中的 `IssueAssignDto` 是一个简单的 DTO 类：
+
+```csharp
+using System;
+
+namespace IssueTracking.Issues
+{
+    public class IssueAssignDto
+    {
+        public Guid IssueId{get;set;}
+        public Guid UserId{get;set;}
+    }
+}
+```
+
+
+
+## 数据传输对象
+
+[DTO](https://docs.abp.io/en/abp/latest/Data-Transfer-Objects) 是一个简单的对象，用于在应用程序层和表示层之间传输状态（数据）。因此，应用程序服务方法获取并返回 DTOs。
+
+
+
+**通用 DTO 原则和最佳实践**
+
+- 就其性质而言，DTO **应该是可序列化的**。因为，大多数时候它是通过网络传输的。因此，它应该有一个**无参数（空）构造函数**。
+- 不应包含任何**业务逻辑**。
+- **永远**不要继承或引用**实体**。
+
+**输入 DTOs**（传递给应用服务方法的那些）与**输出 DTOs**（那些从应用服务方法返回的）具有不同的性质。因此，他们将受到不同的对待。
+
+
+
+### 输入 DTO 最佳实践
+
+**不要为输入 DTO 定义未使用的属性**
+
+仅定义用例**所需的属性**！否则，**客户端**使用应用服务方法**会造成混淆**。您当然可以定义**可选属性**，但是当客户端提供它们时，它们应该影响用例的工作方式。
+
+这条规则乍一看似乎没有必要。谁会为方法定义未使用的参数（输入 DTO 属性）？但它会发生，尤其是当您尝试重用输入 DTOs 时。
+
+
+
+**不要重复使用输入 DTOs**
+
+为**每个用例定义一个专门的输入 DTO**（应用程序服务方法）。否则，在某些情况下不会使用某些属性，这违反了上面定义的规则：不要为输入 DTOs 定义未使用的属性。
+
+有时，为两个用例重用同一个 DTO 类似乎很有吸引力，因为它们几乎相同。即使它们现在是一样的，到时候它们可能会变得不同，你会遇到同样的问题。**代码复制是比耦合用例更好的做法**。
+
+另一种重用输入 DTOs 的方法是相互**继承** DTOs。虽然这在极少数情况下很有用，但大多数情况下它也会产生同样的问题。
+
+
+
+**示例：用户应用服务**
+
+```csharp
+public interface IUserAppService : IApplicationService
+{
+    Task CreateAsync(UserDto input);
+    Task UpdateAsync(UserDto input);
+    Task ChangePasswordAsync(UserDto input);
+}
+```
+
+`IUserAppService` 使用 `UserDto` 作为所有方法（用例）中的输入 DTO。 `UserDto` 定义如下：
+
+```csharp
+public class UserDto
+{
+    public Guid Id { get; set; }
+    public string UserName { get; set; }
+    public string Email { get; set; }
+    public string Password { get; set; }
+    public DateTime CreationTime { get; set; }
+}
+```
+
+对于这个例子；
+
+- `Id` 在 *Create* 方法中不被使用，因为它由服务器生成。
+- `Password` 在 *Update* 方法中不使用，因为有修改密码有其他方法。
+- `CreationTime` 从未被使用，因为我们不允许客户端发送创建时间。它应该在服务器中设置。
+
+一个正确的实现可以是这样的：
+
+```csharp
+public interface IUserAppService : IApplicationService
+{
+    Task CreateAsync(UserCreationDto input);
+    Task UpdateAsync(UserUpdateDto input);
+    Task ChangePasswordAsync(UserChangePasswordDto input);
+}
+```
+
+使用给定的输入 DTO 类：
+
+```csharp
+public class UserCreationDto
+{
+    public string UserName { get; set; }
+    public string Email { get; set; }
+    public string Password { get; set; }
+}
+
+public class UserUpdateDto
+{
+    public Guid Id { get; set; }
+    public string UserName { get; set; }
+    public string Email { get; set; }
+}
+
+public class UserChangePasswordDto
+{
+    public Guid Id { get; set; }
+    public string Password { get; set; }
+}
+```
+
+尽管编写了更多代码，但这是更易于维护的方法。
+
+**例外情况：**此规则可能有一些例外：如果您总是希望**并行**开发两个方法，它们可能共享相同的输入 DTO（通过继承或直接重用）。例如，如果您有一个包含一些过滤器的报告页面，并且您有多个应用程序服务方法（如屏幕报告、excel 报告和 csv 报告方法）使用相同的过滤器但返回不同的结果，您可能希望重用相同的过滤器输入DTO 来**耦合这些用例**。因为，在本例中，无论何时更改过滤器，您都必须对所有方法进行必要的更改，以获得一致的报告系统。
+
+
+
+**输入 DTO 验证逻辑**
+
+- 仅在 DTO 内实施**简单验证**。使用数据注释验证属性或实现 `IValidatableObject` 进行简单验证。
+- **不执行领域验证**。例如，不要尝试检查 DTOs 中的唯一用户名约束。
+
+
+
+**示例：使用数据注释属性**
+
+```csharp
+using System.ComponentModel.DataAnnotations;
+
+namespace IssueTracking.Users
+{
+    public class UserCreationDto
+    {
+        [Required]
+        [StringLength(UserConsts.MaxUserNameLength)]
+        public string UserName { get; set; }
+
+        [Required]
+        [EmailAddress]
+        [StringLength(UserConsts.MaxEmailLength)]
+        public string Email { get; set; }
+
+        [Required]
+        [StringLength(UserConsts.MaxEmailLength, MinimumLength = UserConsts.MinPasswordLength)]
+        public string Password { get; set; }
+    }
+}
+```
+
+ABP 框架会自动验证输入 DTOs，抛出 `AbpValidationException` 并在输入无效的情况下向客户端返回 HTTP 状态 `400`。
+
+
+
+::: tip
+一些开发人员认为最好将验证规则和 DTOs 类分开。我们认为声明式（数据注释）方法实用且有用，不会导致任何设计问题。但是，如果您更喜欢其他方法，ABP 也支持 [FluentValidation](https://docs.abp.io/en/abp/latest/FluentValidation) 集成。
+
+有关所有验证选项，请参阅[验证文档](https://docs.abp.io/en/abp/latest/Validation)。
+
+:::
+
+
+
+### 输出 DTO 最佳实践
+
+- 保持输出 **DTO 计数最少**。尽可能重用（例外：不要重用输入 DTOs 作为输出 DTOs）。
+- 输出 DTOs 可以包含比客户端代码中使用的**更多的属性**。
+- 从 **Create** 和 **Update** 方法返回实体 DTO。
+
+这些建议的主要目标是；
+
+- 使客户端代码易于开发和扩展；
+  - 在客户端处理**类似但不相同**的 DTOs 是有问题的。
+  - UI/客户端会在将来需要其他属性是很常见的。返回实体的所有属性（通过考虑安全性和权限）使客户端代码易于改进，而无需接触后端代码。
+  - 如果您向第 3 方客户开放 API，而您不知道每个客户的要求。
+- 使服务端代码易于开发和扩展；
+  - 您需要**了解和维护**的类较少。
+  - 您可以重复使用 Entity->DTO **对象映射**代码。
+  - 从不同的方法返回相同的类型使创建**新方法**变得容易和清晰。
+
+**示例：从不同的方法返回不同的 DTOs**
+
+```csharp
+public interface IUserAppService : IApplicationService
+{
+    UserDto Get(Guid id);
+    List<UserNameAndEmailDto> GetUserNameAndEmail(Guid id);
+    List<string> GetRoles(Guid id);
+    List<UserListDto> GetList();
+    UserCreateResultDto Create(UserCreationDto input);
+    UserUpdateResultDto Update(UserUpdateDto input);
+}
+```
+
+*（我们没有使用异步方法来使示例更清晰，但是请在您的实际应用程序中使用异步方法！）*
+
+
+
+上面的示例代码为每个方法返回不同的 DTOs 类型。您可以猜到，在查询数据、将实体映射到 DTOs 方面会有很多代码重复。
+
+上面的 `IUserAppService` 服务可以简化：
+
+```csharp
+public interface IUserAppService : IApplicationService
+{
+    UserDto Get(Guid id);
+    List<UserDto> GetList();
+    UserDto Create(UserCreationDto input);
+    UserDto Update(UserUpdateDto input);
+}
+```
+
+使用同一个输出 DTO：
+
+```csharp
+public class UserDto
+{
+    public Guid Id { get; set; }
+    public string UserName { get; set; }
+    public string Email { get; set; }
+    public DateTiem CreationTime { get; set; }
+    public List<string> Roles { get; set; }
+}
+```
+
+- 删除了 `GetUserNameAndEmail` 和 `GetRoles`，因为 `Get` 方法已经返回了必要的信息。
+- `GetList` 现在返回与 `Get` 相同的结果。
+- `Create` 和 `Update` 也返回相同的 `UserDto`。
+
+如前所述，使用相同的 DTO 有很多优点。例如，考虑在 UI 上显示用户**数据列表**的场景。更新用户后，您可以获取返回值并**在 UI 上进行更新**。因此，您无需再次调用 `GetList`。这就是为什么我们建议将实体 DTO（此处为 `UserDto`）作为 `Create` 和 `Update` 操作的返回值返回的原因。
+
+
+
+#### **讨论**
+
+某些输出 DTO 建议可能并不适合所有场景。出于**性能**原因，可以忽略这些建议，尤其是在返回大**型数据集**或为自己的 UI 创建服务并且**并发请求过多**时。
+
+在这些情况下，您可能希望**使用最少的信息创建专门的输出 DTOs**。上述建议特别适用于**维护代码库**比**可忽略的性能损失**更重要的应用程序。
+
+
+
+#### **对象到对象映射**
+
+当两个对象具有相同或相似的属性时，自动[对象到对象映射](https://docs.abp.io/en/abp/latest/Object-To-Object-Mapping)是一种将值从一个对象复制到另一个对象的有用方法。
+
+DTO 和实体类通常具有相同/相似的属性，您通常需要从实体创建 DTO 对象。与手动映射相比，[ABP 的对象到对象映射系统](https://docs.abp.io/en/abp/latest/Object-To-Object-Mapping)与 [AutoMapper](http://automapper.org/) 集成使这些操作更加容易。
+
+- 仅对**实体到输出DTO使用**自动对象映射。
+- **输入DTO到实体**，**不适用**自动对象映射。
+
+不应该使用输入 DTO 到实体自动映射有一些原因；
+
+1. 实体类通常有一个**构造函数**，它接受参数并确保有效的对象创建。自动对象映射操作通常需要一个空的构造函数。
+2. 大多数实体属性将具有**私有 setter**，您应该使用方法以受控方式更改这些属性。
+3. 您通常需要**仔细验证和处理**用户/客户端输入，而不是盲目地映射到实体属性。
+
+虽然其中一些问题可以通过映射配置解决（例如，AutoMapper 允许定义自定义映射规则），但它使您的业务代码**隐式/隐藏**并与基础设施**紧密耦合**。我们认为业务代码应该是明确的、清晰的、易于理解的。
+
+
+
+有关本节中提出的建议的示例实现，请参阅下一章的*实体创建*部分。
+
