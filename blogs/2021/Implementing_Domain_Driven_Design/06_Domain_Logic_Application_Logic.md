@@ -248,3 +248,16 @@ public class IssueAppService
 不要仅仅认为将来可能需要它们（[YAGNI](https://en.wikipedia.org/wiki/You_aren%27t_gonna_need_it)）就创建这样的 CRUD 领域服务方法！在需要时执行并重构现有代码。由于应用层优雅地抽象了领域层，重构过程不会影响 UI 层和其他客户端。
 :::
 
+
+
+
+
+::: warning
+作者：Gerry Ge
+
+出处：[https://gerryge.com/blogs/2021/Implementing_Domain_Driven_Design/06_Domain_Logic_Application_Logic.html](https://gerryge.com/blogs/2021/Implementing_Domain_Driven_Design/06_Domain_Logic_Application_Logic.html)
+
+版权：本作品采用「[署名-非商业性使用-相同方式共享 4.0 国际](https://creativecommons.org/licenses/by-nc-sa/4.0/)」许可协议进行许可。
+
+**转载请注明出处**
+:::

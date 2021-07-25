@@ -384,3 +384,18 @@ public async Task ChangeTitleAsync(Issue issue, string title)
 }
 ```
 
+
+
+
+
+
+
+::: warning
+作者：Gerry Ge
+
+出处：[https://gerryge.com/blogs/2021/Implementing_Domain_Driven_Design/05_Example_User_Cases.html](https://gerryge.com/blogs/2021/Implementing_Domain_Driven_Design/05_Example_User_Cases.html)
+
+版权：本作品采用「[署名-非商业性使用-相同方式共享 4.0 国际](https://creativecommons.org/licenses/by-nc-sa/4.0/)」许可协议进行许可。
+
+**转载请注明出处**
+:::

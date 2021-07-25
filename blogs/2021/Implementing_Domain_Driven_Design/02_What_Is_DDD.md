@@ -81,3 +81,15 @@ DDD 主要**关注领域和应用层**，而忽略了表示和基础设施。它
 - **数据传输对象 (DTO)：**[DTO](https://docs.abp.io/en/abp/latest/Data-Transfer-Objects) 是一个简单的对象，没有任何业务逻辑，用于在应用程序层和表示层之间传输状态（数据）。
 - **工作单元 (UOW)：**[工作单元](https://docs.abp.io/en/abp/latest/Unit-Of-Work)是原子性工作，应该作为事务单元来完成。 UOW 中的所有操作都应该在成功时一起提交或在任何一个失败时一起回滚。
 
+
+
+::: warning
+作者：Gerry Ge
+
+出处：[https://gerryge.com/blogs/2021/Implementing_Domain_Driven_Design/02_What_Is_DDD.html](https://gerryge.com/blogs/2021/Implementing_Domain_Driven_Design/02_What_Is_DDD.html)
+
+版权：本作品采用「[署名-非商业性使用-相同方式共享 4.0 国际](https://creativecommons.org/licenses/by-nc-sa/4.0/)」许可协议进行许可。
+
+**转载请注明出处**
+:::
+

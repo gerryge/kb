@@ -54,3 +54,17 @@ next: ./02_What_Is_DDD
 
 如果您**遵循规则和最佳实践**，您的代码库将更简单、更易于维护。您的应用程序**对变化的反应**更快。
 
+
+
+
+
+::: warning
+作者：Gerry Ge
+
+出处：[https://gerryge.com/blogs/2021/Implementing_Domain_Driven_Design/01_Introduction.html](https://gerryge.com/blogs/2021/Implementing_Domain_Driven_Design/01_Introduction.html)
+
+版权：本作品采用「[署名-非商业性使用-相同方式共享 4.0 国际](https://creativecommons.org/licenses/by-nc-sa/4.0/)」许可协议进行许可。
+
+**转载请注明出处**
+:::
+

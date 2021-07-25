@@ -219,3 +219,17 @@ DDD 关注领域对象如何**变化和交互**；如何通过保持数据**完�
 
 DDD **忽略报告**和批量查询。这并不意味着它们不重要。如果您的应用程序没有精美的仪表板和报告，谁会使用它？但是，报告是另一个主题。您通常希望使用 SQL Server 的全部功能，甚至使用单独的数据源（如 ElasticSearch）进行报告。您将编写优化的查询、创建索引甚至存储过程（！）。只要您不将它们感染到您的业务逻辑中，您就可以自由地做所有这些事情。
 
+
+
+
+
+::: warning
+作者：Gerry Ge
+
+出处：[https://gerryge.com/blogs/2021/Implementing_Domain_Driven_Design/03_Implementation_The_Big_Picture.html](https://gerryge.com/blogs/2021/Implementing_Domain_Driven_Design/03_Implementation_The_Big_Picture.html)
+
+版权：本作品采用「[署名-非商业性使用-相同方式共享 4.0 国际](https://creativecommons.org/licenses/by-nc-sa/4.0/)」许可协议进行许可。
+
+**转载请注明出处**
+:::
+
