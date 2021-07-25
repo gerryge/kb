@@ -30,7 +30,7 @@ DDD 适用于**复杂领域**和**大型**应用，而不是简单的 CRUD 应�
 
 
 
-## DDD分层 和 简洁架构
+## DDD分层 和 整洁架构
 
 基于领域驱动的解决方案有四个基本层；
 
@@ -70,7 +70,7 @@ DDD 主要**关注领域和应用层**，而忽略了表示和基础设施。它
 - **聚合和聚合根：**[聚合](https://docs.abp.io/en/abp/latest/Entities)是由聚合根对象绑定在一起的一组对象（实体和值对象）。**聚合根**是具有一些附加职责的特定类型的实体。
 - **存储库（接口）：**[存储库](https://docs.abp.io/en/abp/latest/Repositories)是一个类似集合的接口，领域和应用层使用它来访问数据持久性系统（数据库）。它对业务代码隐藏了 DBMS 的复杂性。领域层包含存储库的**接口**。
 - **领域服务：**[领域服务](https://docs.abp.io/en/abp/latest/Domain-Services)是实现领域核心业务规则的无状态服务。实现依赖于多个聚合（实体）类型或一些外部服务的领域逻辑很有用。
-- **规范：**[规范](https://docs.abp.io/en/abp/latest/Specifications)用于为实体和其他业务对象定义命名的、可重用的和可组合的过滤器。
+- **规约：**[规约](https://docs.abp.io/en/abp/latest/Specifications)用于为实体和其他业务对象定义命名的、可重用的和可组合的过滤器。
 - **领域事件：**[领域事件](https://docs.abp.io/en/abp/latest/Event-Bus)是一种在特定领域事件发生时以松散耦合的方式通知其他服务的方式。
 
 

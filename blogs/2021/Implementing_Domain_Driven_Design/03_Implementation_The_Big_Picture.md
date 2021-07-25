@@ -40,7 +40,7 @@ next: ./04_Implementation_The_Building_Blocks
 
 领域层被分成了两个项目；
 
-- `IssueTracking.Domain` 是**基本的领域层**，包含之前介绍的所有**构建块**（实体、值对象、领域服务、规范、存储库接口等）。
+- `IssueTracking.Domain` 是**基本的领域层**，包含之前介绍的所有**构建块**（实体、值对象、领域服务、规约、存储库接口等）。
 - `IssueTracking.Domain.Shared` 是一个瘦项目，其中包含一些属于领域层但与所有其他层共享的类型。例如，它可能包含一些与领域对象相关的常量和枚举，但需要**被其他层重用**。
 
 

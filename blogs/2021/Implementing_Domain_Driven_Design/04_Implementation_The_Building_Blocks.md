@@ -868,7 +868,7 @@ public class IssueAppService : ApplicationService, IIssueAppService
 
 **组合规约**
 
-规约的一个强大方面是它们是可组合的。假设我们有另一个规范，仅当`Issue`在里程碑中时才返回 `true`：
+规约的一个强大方面是它们是可组合的。假设我们有另一个规约，仅当`Issue`在里程碑中时才返回 `true`：
 
 ```csharp
 public class MilestoneSpecification : Specification<Issue>
