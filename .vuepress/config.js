@@ -172,6 +172,14 @@ module.exports = {
         //   link: '/donate'
         // }
       ]
+    }],
+    ['@vuepress-reco/vuepress-plugin-kan-ban-niang', {
+      messages: {
+        welcome: '欢迎来到KB - GerryGe的博客',
+        home: '主人，让我们回家吧',
+        theme: '好吧，让我们来变身玩玩',
+        close: '跪安吧'
+      }
     }]
   ]
 }

@@ -8,6 +8,7 @@
   },
   "devDependencies": {
     "@vuepress-reco/vuepress-plugin-bulletin-popover": "^1.6.0",
+    "@vuepress-reco/vuepress-plugin-kan-ban-niang": "^1.0.5",
     "vuepress": "^1.8.2",
     "vuepress-plugin-flowchart": "^1.4.3",
     "vuepress-theme-reco": "^1.6.6"
